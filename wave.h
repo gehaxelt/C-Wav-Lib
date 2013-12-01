@@ -7,6 +7,48 @@
 //URL: https://ccrma.stanford.edu/courses/422/projects/WaveFormat/
 
 #include <stdio.h>
+#include <stdint.h>
+
+/*
+The RIFF header!
+*/
+typedef struct {
+    uint32_t ChunkID; //"RIFF"
+    uint32_t ChunkSize; //"36 + sizeof(wave_data_t) + data"
+    uint32_t Format; // "WAVE"
+} wave_riff_t;
+
+/*
+The FMT header!
+*/
+typedef struct {
+    uint32_t Subchunk1ID; //"fmt "
+    uint32_t Subchunk1Size; //16 (PCM)
+    uint16_t AudioFormat; // 1 'cause PCM
+    uint16_t NumChannels; // mono = 1; stereo = 1
+    uint32_t SampleRate; // 8000, 44100, etc.
+    uint32_t ByteRate; //== SampleRate * NumChannels * BitsPerSample/8
+    uint16_t BlockAlign; //== NumChannels * BitsPerSample/8
+    uint16_t BitsPerSample; //8 bits = 8, 16 bits = 16, etc.
+} wave_fmt_t;
+
+/*
+The Data header!
+*/
+typedef struct {
+    uint32_t Subchunk2ID; //"data"
+    uint32_t Subchunk2Size; //== NumSamples * NumChannels * BitsPerSample/8
+} wave_data_t;
+
+/*
+The complete header!
+*/
+typedef struct {
+    wave_riff_t Riff;
+    wave_fmt_t Fmt;
+    wave_data_t Data;
+} wave_header_t;
+
 
 /*
 Wave header size in bytes
@@ -14,8 +56,8 @@ Wave header size in bytes
 static const int WAVE_HEADER_SIZE = 44;
 
 /*
-Writes the RIFF wave header.
-@param: FILE stream - The file to write the header to
+Writes the wave header.
+@param: FILE *stream - The file to write the header to
 @param: unsigned int channels - The number of channels; Mono = 1 ; Stereo = 2
 @param: unsigned int samplerate - The sample rate ; e.g 8000, 44000
 @param: unsigned int sampleBits - The bits per sample
@@ -23,6 +65,30 @@ Writes the RIFF wave header.
 */
 void write_wave_header(FILE *stream,unsigned int channels,unsigned int samplerate,unsigned int sampleBits,unsigned int samples);
 
+/*
+Writes a sample to a file
+@param: FILE *stream - The file to write the header to
+@param: unsigned int sample - Sample value to write
+@param: unsigned int samplerate - The sample rate ; e.g 8000, 44000
+@param: unsigned int sampleBits - The bits per sample
+*/
 void write_wave_sample(FILE *stream, unsigned int sample, unsigned int sampleBits);
+
+/*
+Reads a wave header
+@param: FILE *stream - the file to read the header from
+@param: wave_header_t *dst - The wave_header_t structure to write the header to
+*/
+int read_wave_header(FILE *stream, wave_header_t *dst);
+
+/*
+Reads samples from a wave file
+@param: FILE *stream - the file to read the samples from
+@param: unsigned int retArr - 1D array where the samples will be stored
+@param: unsigned int size - Amount of elements that can be stored in the array
+@param: unsigned int sampleBits - the number of bits per sample
+@param: unsigned int offset - the offset to start to read from the file 
+*/
+int read_wave_samples(FILE *stream, unsigned int* retArr, unsigned int size, unsigned int sampleBits, unsigned int offset);
 
 #endif /* WAVE_H_ */

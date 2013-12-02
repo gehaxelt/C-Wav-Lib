@@ -11,14 +11,38 @@ int main() {
     FILE *f = fopen(file2,"wb");
     unsigned int test_channels = 3;
     unsigned int test_sampleRate = 44000;
-    unsigned int test_sampleBits = 16;
-    unsigned int test_samplesPerChannel = 0xff;
+    unsigned int test_sampleByte = 2;
+    unsigned int test_samplesPerChannel = 0xf;
 
 
-    write_wave_header(f,test_channels,test_sampleRate,test_sampleBits,test_samplesPerChannel);
+    write_wave_header(f,test_channels,test_sampleRate,test_sampleByte,test_samplesPerChannel);
+
+    void *sampleData = malloc(sizeof(char)*test_channels*test_sampleByte);
+    if(sampleData==NULL)
+        return;
+
+    wave_sample_t sample = {
+        test_channels,
+        test_sampleByte,
+        test_channels*test_sampleByte,
+        NULL
+    };
 
 
+    int i,j;
+    for(i=0;i<test_samplesPerChannel;i++) {
+        for(j=0;j<test_channels;j++) {
+            *(((short *)sampleData) + j*test_sampleByte) = to_le16((i % 100 + 5000) & 0xFFFF);
+            //printf("data: %x\n",(i  % 100 + 5000) & 0xFFFF);
+            //printf("mem: %x%x%x\n",*((short*) sampleData),*((short*) sampleData+2),*((short*) sampleData+4));
+        }
+        //printf("NEXT###\n");
+        sample.sampleData = sampleData;
+        write_wave_sample(f,&sample);
+        exit(0);
+    }
 
+    free(sampleData);
     fclose(f);
 
     wave_header_t *readHeader = malloc(sizeof(wave_header_t));
@@ -32,12 +56,12 @@ int main() {
 
     read_wave_header(f2,readHeader);
 
-    int samplePerChannel = readHeader->Data.Subchunk2Size / (readHeader->Fmt.NumChannels * (readHeader->Fmt.BytesPerSample/8));
+    int samplePerChannel = readHeader->Data.Subchunk2Size / (readHeader->Fmt.NumChannels * (readHeader->Fmt.BytesPerSample));
     printf("samplePerChannel = %d\n",samplePerChannel);
 
     fclose(f2);
     free(readHeader);
-
+    
 
 
     /*int i,j;

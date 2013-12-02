@@ -10,12 +10,19 @@ static const uint32_t FMT = 0x666d7420; //"fmt "
 static const uint32_t DATA = 0x64617461; //"data"
 
 
-void write_wave_sample(FILE *stream, char* sample, unsigned int sampleBytes, unsigned int channels) {
+void write_wave_sample(FILE *stream, wave_sample_t *sample) {
     if(stream==NULL)
         return;
 
     if(sample==NULL)
         return;
+
+    //to_le((char*)sample->sampleData,sample->DataSize);
+
+    printf("mem: %x%x%x\n",*((short*) sample->sampleData),*((short*) sample->sampleData+2),*((short*) sample->sampleData+4));
+    printf("bytes: %x\n",sample->DataSize);
+    fseek(stream,0,SEEK_END);
+    fwrite(sample->sampleData,sample->DataSize,1,stream);
 
     return;
 }
@@ -24,10 +31,11 @@ void write_wave_header(FILE *stream,unsigned int channels,unsigned int samplerat
 
     if(stream==NULL)
         return;
+    samples--;
 
     wave_riff_t RiffHeader = {
         to_be32(RIFF), 
-        to_le32(36 + sizeof(wave_data_t) + (samples*channels*sampleBytes/8)),
+        to_le32(36 + sizeof(wave_data_t) + (samples*channels*sampleBytes)),
         to_be32(WAVE)
     };
 
@@ -37,14 +45,14 @@ void write_wave_header(FILE *stream,unsigned int channels,unsigned int samplerat
         to_le16(1), //we'll use 1 for PCM
         to_le16(channels),
         to_le32(samplerate),
-        to_le32(samplerate * channels * sampleBytes / 8),
-        to_le16(channels * sampleBytes / 8),
+        to_le32(samplerate * channels * sampleBytes),
+        to_le16(channels * sampleBytes),
         to_le16(sampleBytes)
     };
 
     wave_data_t DataHeader = {
         to_be32(DATA),
-        to_le32(samples * channels * sampleBytes/8)
+        to_le32(samples * channels * sampleBytes)
     };
 
     wave_header_t WaveHeader = {

@@ -49,6 +49,15 @@ typedef struct {
     wave_data_t Data;
 } wave_header_t;
 
+/*
+* The sample struct
+*/
+typedef struct {
+    unsigned int Channels;
+    unsigned int BytesPerSample;//---size
+    unsigned int DataSize;//        |
+    void *sampleData; // [chan 1][chan 2][chan 3] ; Pure memory, but we're using char* for easier adressing
+} wave_sample_t;
 
 /*
 Wave header size in bytes
@@ -75,11 +84,9 @@ int read_wave_header(FILE *stream, wave_header_t *dst);
 /*
 Writes a sample to a file
 @param: FILE *stream - The file to write the header to
-@param: char* sample - 1D Array with: sample[channelvalue]
-@param: unsigned int sampleBytes - The byte per sample
-@param: unsigned int channels - The number of channels == sizeof(sample[])
+@param: wave_sample_t *sample - The sample to write
 */
-void write_wave_sample(FILE *stream, char *sample, unsigned int sampleBytes, unsigned int channels);
+void write_wave_sample(FILE *stream, wave_sample_t *sample);
 
 /*
 Reads samples from a wave file

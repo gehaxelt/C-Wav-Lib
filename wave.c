@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
-
+#include "endianness.h"
 #include "wave.h"
 
 static const uint32_t RIFF = 0x52494646;//"RIFF"
@@ -9,80 +9,25 @@ static const uint32_t WAVE = 0x57415645;//"WAVE"
 static const uint32_t FMT = 0x666d7420; //"fmt "
 static const uint32_t DATA = 0x64617461; //"data"
 
-/*
- * True if system is little-endian, false otherwise.
- */
-int is_little_endian()
-{
-    int one = 1;
-    char *ptr = (char *) &one;
-    return *ptr == 1;
-}
 
-/*
- * True if system is big-endian, false otherwise.
- */
-int is_big_endian()
-{
-    return (int) ! is_little_endian();
-}
-
-/*
- * Converts the 16-bit value to little-endian representation.
- */
-uint16_t to_le16(uint16_t value)
-{
-    return is_little_endian() ?
-            value : ((value & 0x00ff) >> 8) | ((value & 0xff00) << 8);
-}
-
-/*
- * Converts the 16-bit value to big-endian representation.
- */
-uint16_t to_be16(uint16_t value)
-{
-    return is_big_endian() ?
-            value : ((value & 0xff00) << 8) | ((value & 0x00ff) >> 8);
-}
-
-/*
- * Converts the 32-bit value to big-endian representation.
- */
-uint32_t to_be32(uint32_t value)
-{
-    return is_big_endian() ?
-            value :
-            ((value & 0xff000000) >> 24) | ((value & 0x00ff0000) >> 8)
-                    | ((value & 0x0000ff00) << 8) | ((value & 0x000000ff) << 24);
-}
-
-/*
- * Converts the 32-bit value to little-endian representation.
- */
-uint32_t to_le32(uint32_t value)
-{
-    return is_little_endian() ?
-            value :
-            ((value & 0x000000ff) << 24) | ((value & 0x0000ff00) << 8)
-                    | ((value & 0x00ff0000) >> 8) | ((value & 0xff000000) >> 24);
-}
-
-void write_wave_sample(FILE *stream, unsigned int sample, unsigned int sampleBits) {
+void write_wave_sample(FILE *stream, char* sample, unsigned int sampleBytes, unsigned int channels) {
     if(stream==NULL)
         return;
 
-    sample = to_le32(sample);
-    fwrite(&sample,sampleBits / 8,1,stream);
+    if(sample==NULL)
+        return;
+
+    return;
 }
 
-void write_wave_header(FILE *stream,unsigned int channels,unsigned int samplerate,unsigned int sampleBits,unsigned int samples) {
+void write_wave_header(FILE *stream,unsigned int channels,unsigned int samplerate, unsigned int sampleBytes,unsigned int samples) {
 
     if(stream==NULL)
         return;
 
     wave_riff_t RiffHeader = {
         to_be32(RIFF), 
-        to_le32(36 + sizeof(wave_data_t) + (samples*channels*samples/8)),
+        to_le32(36 + sizeof(wave_data_t) + (samples*channels*sampleBytes/8)),
         to_be32(WAVE)
     };
 
@@ -92,14 +37,14 @@ void write_wave_header(FILE *stream,unsigned int channels,unsigned int samplerat
         to_le16(1), //we'll use 1 for PCM
         to_le16(channels),
         to_le32(samplerate),
-        to_le32(samplerate * channels * sampleBits / 8),
-        to_le16(channels * sampleBits / 8),
-        to_le16(sampleBits)
+        to_le32(samplerate * channels * sampleBytes / 8),
+        to_le16(channels * sampleBytes / 8),
+        to_le16(sampleBytes)
     };
 
     wave_data_t DataHeader = {
         to_be32(DATA),
-        to_le32(samples * channels * sampleBits/8)
+        to_le32(samples * channels * sampleBytes/8)
     };
 
     wave_header_t WaveHeader = {
@@ -161,7 +106,7 @@ int read_wave_header(FILE *stream, wave_header_t *dst) {
     dst->Fmt.SampleRate = to_le32( *((uint32_t*) (buffer + 24)));
     dst->Fmt.ByteRate = to_le32( *((uint32_t*) (buffer + 28)));
     dst->Fmt.BlockAlign = to_le16( *((uint16_t*) (buffer + 32)));
-    dst->Fmt.BitsPerSample = to_le16( *((uint16_t*) (buffer + 34)));
+    dst->Fmt.BytesPerSample = to_le16( *((uint16_t*) (buffer + 34)));
 
     dst->Data.Subchunk2ID = to_be32( *((uint32_t*) (buffer + 36)));
 
@@ -173,23 +118,23 @@ int read_wave_header(FILE *stream, wave_header_t *dst) {
     return ret_read_header(0,buffer);
 }
 
-int read_wave_samples(FILE *stream, unsigned int* retArr, unsigned int size, unsigned int sampleBits, unsigned int offset) {
+int read_wave_samples(FILE *stream, unsigned int* retArr, unsigned int size, unsigned int sampleBytes, unsigned int offset) {
     if(stream==NULL)
         return -1;
 
     if(retArr==NULL)
         return -2;
 
-    char *buffer = malloc(size*(sampleBits/2));
+    char *buffer = malloc(size*(sampleBytes));
 
     if(buffer==NULL)
         return -3;
 
     fseek(stream, WAVE_HEADER_SIZE + offset*sizeof(int),SEEK_CUR);
-    fread(buffer,size*(sampleBits/8),1,stream);
+    fread(buffer,size*(sampleBytes),1,stream);
 
     int i;
-    for(i = 0; i <= size*(sampleBits/8)/channels; i+= (sampleBits/8)*channels ) {
+    for(i = 0; i <= size*(sampleBytes); i+= (sampleBytes) ) {
         *(retArr+i) = to_le32( *(uint32_t*) (buffer + i));
         printf("i: %d, data: %x\n",i,to_le32( *(uint32_t*) (buffer + i)));
     }

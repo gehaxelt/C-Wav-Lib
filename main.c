@@ -9,21 +9,51 @@ int main() {
     char *file2 = "test2.wave";
 
     FILE *f = fopen(file2,"wb");
-    unsigned int test_channels = 2;
-    unsigned int test_samplerate = 44000;
-    unsigned int test_samplebits = 16;
-    unsigned int test_samples = 0xff-1;
+    unsigned int test_channels = 3;
+    unsigned int test_sampleRate = 44000;
+    unsigned int test_sampleBits = 16;
+    unsigned int test_samplesPerChannel = 0xff;
 
 
-    write_wave_header(f,test_channels,test_samplerate,test_samplebits,test_samples);
-    int i;
-    for(i=0;i < 0xff; i++) {
-        write_wave_sample(f,(i % 100) + 50,test_samplebits);
+    write_wave_header(f,test_channels,test_sampleRate,test_sampleBits,test_samplesPerChannel);
+
+
+
+    fclose(f);
+
+    wave_header_t *readHeader = malloc(sizeof(wave_header_t));
+
+    if(readHeader==NULL) {
+        printf("Something failed :(\n");
+        return 0;
+    }
+
+    FILE *f2 = fopen(file2,"rb");
+
+    read_wave_header(f2,readHeader);
+
+    int samplePerChannel = readHeader->Data.Subchunk2Size / (readHeader->Fmt.NumChannels * (readHeader->Fmt.BytesPerSample/8));
+    printf("samplePerChannel = %d\n",samplePerChannel);
+
+    fclose(f2);
+    free(readHeader);
+
+
+
+    /*int i,j;
+
+    char* buf = malloc(sizeof(char)*test_channels*test_samplebits/8)
+    for(i=0;i <= test_samples; i++) {
+        for(j=0;j <= test_channels;j++) {
+            
+        }
+        write_wave_sample(f,(i % 100) + 50,test_samplebits,test_channels);
     }
     fclose(f);
+    */
     
     
-
+    /*
     wave_header_t *readHeader = malloc(sizeof(wave_header_t));
 
     if(readHeader==NULL) {
@@ -48,10 +78,11 @@ int main() {
     /*int i;
     for(i=0; i < sampleCount-1; i++)
         printf("Sample %d: %x\n",i,*(samples + 4*i));
-    */
+
     fclose(fh);
     free(samples);
-    free(readHeader);
+    free(readHeader);*/
     
+    return 0;
 
 }

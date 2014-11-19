@@ -2,44 +2,42 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include "endianness.h"
-#include "wave.h"
+#include "wav.h"
 
 static const uint32_t RIFF = 0x52494646;//"RIFF"
-static const uint32_t WAVE = 0x57415645;//"WAVE"
+static const uint32_t WAV = 0x57415645;//"WAV"
 static const uint32_t FMT = 0x666d7420; //"fmt "
 static const uint32_t DATA = 0x64617461; //"data"
 
 
-void write_wave_sample(FILE *stream, wave_sample_t *sample) {
+void write_wav_sample(FILE *stream, wav_sample_t *sample) {
     if(stream==NULL)
         return;
 
     if(sample==NULL)
         return;
 
-    //to_le((char*)sample->sampleData,sample->DataSize);
-
-    printf("mem: %x%x%x\n",*((short*) sample->sampleData),*((short*) sample->sampleData+2),*((short*) sample->sampleData+4));
-    printf("bytes: %x\n",sample->DataSize);
+    //printf("mem: %08x-%08x\n",*((int*) sample->sampleData),*(((int*) sample->sampleData)+1));
+    //printf("bytes: %x\n",sample->DataSize);
     fseek(stream,0,SEEK_END);
     fwrite(sample->sampleData,sample->DataSize,1,stream);
 
     return;
 }
 
-void write_wave_header(FILE *stream,unsigned int channels,unsigned int samplerate, unsigned int sampleBytes,unsigned int samples) {
+void write_wav_header(FILE *stream,unsigned int channels,unsigned int samplerate, unsigned int sampleBytes,unsigned int samples) {
 
     if(stream==NULL)
         return;
     samples--;
 
-    wave_riff_t RiffHeader = {
+    wav_riff_t RiffHeader = {
         to_be32(RIFF), 
-        to_le32(36 + sizeof(wave_data_t) + (samples*channels*sampleBytes)),
-        to_be32(WAVE)
+        to_le32(36 + sizeof(wav_data_t) + (samples*channels*sampleBytes)),
+        to_be32(WAV)
     };
 
-    wave_fmt_t FmtHeader = {
+    wav_fmt_t FmtHeader = {
         to_be32(FMT),
         to_le32(16), //we'll use PCM
         to_le16(1), //we'll use 1 for PCM
@@ -47,21 +45,21 @@ void write_wave_header(FILE *stream,unsigned int channels,unsigned int samplerat
         to_le32(samplerate),
         to_le32(samplerate * channels * sampleBytes),
         to_le16(channels * sampleBytes),
-        to_le16(sampleBytes)
+        to_le16(sampleBytes*8)
     };
 
-    wave_data_t DataHeader = {
+    wav_data_t DataHeader = {
         to_be32(DATA),
         to_le32(samples * channels * sampleBytes)
     };
 
-    wave_header_t WaveHeader = {
+    wav_header_t WavHeader = {
         RiffHeader,
         FmtHeader,
         DataHeader
     };
 
-    fwrite(&WaveHeader,sizeof(wave_header_t),1,stream);
+    fwrite(&WavHeader,sizeof(wav_header_t),1,stream);
 }
 
 int ret_read_header(int status,char* buffer) {
@@ -69,7 +67,7 @@ int ret_read_header(int status,char* buffer) {
     return status;
 }
 
-int read_wave_header(FILE *stream, wave_header_t *dst) {
+int read_wav_header(FILE *stream, wav_header_t *dst) {
 
     if(dst == NULL) 
         return -1;
@@ -77,12 +75,12 @@ int read_wave_header(FILE *stream, wave_header_t *dst) {
     if(stream == NULL)
         return -2;
 
-    char *buffer = malloc(WAVE_HEADER_SIZE);
+    char *buffer = malloc(WAV_HEADER_SIZE);
 
     if(buffer==NULL)
         return ret_read_header(-3,buffer);
 
-    fread(buffer,WAVE_HEADER_SIZE,1,stream);
+    fread(buffer,WAV_HEADER_SIZE,1,stream);
 
     dst->Riff.ChunkID = to_be32( *((uint32_t*)buffer));
 
@@ -92,7 +90,7 @@ int read_wave_header(FILE *stream, wave_header_t *dst) {
     dst->Riff.ChunkSize = to_le32( *((uint32_t*)(buffer + 4 )));
     dst->Riff.Format = to_be32( *((uint32_t*) (buffer + 8 )));
 
-    if(dst->Riff.Format != WAVE)
+    if(dst->Riff.Format != WAV)
         return ret_read_header(-5,buffer);
 
     dst->Fmt.Subchunk1ID = to_be32( *((uint32_t*) (buffer + 12 )));
@@ -126,7 +124,7 @@ int read_wave_header(FILE *stream, wave_header_t *dst) {
     return ret_read_header(0,buffer);
 }
 
-int read_wave_samples(FILE *stream, unsigned int* retArr, unsigned int size, unsigned int sampleBytes, unsigned int offset) {
+int read_wav_samples(FILE *stream, unsigned int* retArr, unsigned int size, unsigned int sampleBytes, unsigned int offset) {
     if(stream==NULL)
         return -1;
 
@@ -138,7 +136,7 @@ int read_wave_samples(FILE *stream, unsigned int* retArr, unsigned int size, uns
     if(buffer==NULL)
         return -3;
 
-    fseek(stream, WAVE_HEADER_SIZE + offset*sizeof(int),SEEK_CUR);
+    fseek(stream, WAV_HEADER_SIZE + offset*sizeof(int),SEEK_CUR);
     fread(buffer,size*(sampleBytes),1,stream);
 
     int i;

@@ -1,51 +1,57 @@
-#include "wave.h"
+#include "wav.h"
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
 #include <stdlib.h>
+#include <math.h>
 
 int main() {
 
-    char *file2 = "test2.wave";
+    char *file2 = "test2.wav";
 
     FILE *f = fopen(file2,"wb");
-    unsigned int test_channels = 3;
+    unsigned int test_channels = 2;
     unsigned int test_sampleRate = 44000;
     unsigned int test_sampleByte = 2;
-    unsigned int test_samplesPerChannel = 0xf;
+    unsigned int test_samplesPerChannel = 44000;
+    unsigned int test_seconds = 60;
+    unsigned int test_hertz = 440;
 
 
-    write_wave_header(f,test_channels,test_sampleRate,test_sampleByte,test_samplesPerChannel);
+    write_wav_header(f,test_channels,test_sampleRate,test_sampleByte,test_samplesPerChannel*test_seconds);
 
-    void *sampleData = malloc(sizeof(char)*test_channels*test_sampleByte);
+    void *sampleData = malloc(sizeof(char)*test_channels*test_sampleByte*test_seconds);
     if(sampleData==NULL)
         return;
 
-    wave_sample_t sample = {
+    wav_sample_t sample = {
         test_channels,
         test_sampleByte,
         test_channels*test_sampleByte,
         NULL
     };
 
-
     int i,j;
-    for(i=0;i<test_samplesPerChannel;i++) {
+    double high,low;
+    for(i=0;i<test_samplesPerChannel*test_seconds;i++) {
         for(j=0;j<test_channels;j++) {
-            *(((short *)sampleData) + j*test_sampleByte) = to_le16((i % 100 + 5000) & 0xFFFF);
-            //printf("data: %x\n",(i  % 100 + 5000) & 0xFFFF);
-            //printf("mem: %x%x%x\n",*((short*) sampleData),*((short*) sampleData+2),*((short*) sampleData+4));
+            //                                             sin(2*Pi*(Hz / 44000)*i)
+            high = sin( (double) i * ( ((double) (test_hertz + ((double)(i % 1000))/440)  * 2 * M_PI) / (double)test_sampleRate));
+            if((i%(22000))<1100*test_seconds) {
+                low = sin( (double) i * ( ((double) (test_hertz + (50)  * 2 * M_PI) / (double)test_sampleRate)));
+            } else {
+                low = sin( (double) i * ( ((double) (test_hertz + (75)  * 2 * M_PI) / (double)test_sampleRate)));
+            }
+            *(((short *)sampleData) + j) = to_le16((short)(( high/2 + low*4 )*0xFFF));
         }
-        //printf("NEXT###\n");
         sample.sampleData = sampleData;
-        write_wave_sample(f,&sample);
-        exit(0);
+        write_wav_sample(f,&sample);
     }
 
     free(sampleData);
     fclose(f);
 
-    wave_header_t *readHeader = malloc(sizeof(wave_header_t));
+    wav_header_t *readHeader = malloc(sizeof(wav_header_t));
 
     if(readHeader==NULL) {
         printf("Something failed :(\n");
@@ -54,58 +60,13 @@ int main() {
 
     FILE *f2 = fopen(file2,"rb");
 
-    read_wave_header(f2,readHeader);
+    read_wav_header(f2,readHeader);
 
     int samplePerChannel = readHeader->Data.Subchunk2Size / (readHeader->Fmt.NumChannels * (readHeader->Fmt.BytesPerSample));
     printf("samplePerChannel = %d\n",samplePerChannel);
 
     fclose(f2);
     free(readHeader);
-    
-
-
-    /*int i,j;
-
-    char* buf = malloc(sizeof(char)*test_channels*test_samplebits/8)
-    for(i=0;i <= test_samples; i++) {
-        for(j=0;j <= test_channels;j++) {
-            
-        }
-        write_wave_sample(f,(i % 100) + 50,test_samplebits,test_channels);
-    }
-    fclose(f);
-    */
-    
-    
-    /*
-    wave_header_t *readHeader = malloc(sizeof(wave_header_t));
-
-    if(readHeader==NULL) {
-        printf("Something failed :(\n");
-        return 0;
-    }
-
-    char *file = "test.wave";
-
-    FILE *fh = fopen(file,"rb");
-
-    read_wave_header(fh,readHeader);
-    
-
-    int sampleCount = readHeader->Data.Subchunk2Size / (readHeader->Fmt.NumChannels * (readHeader->Fmt.BitsPerSample/8));
-    printf("samples = %d\n",sampleCount);
-
-    int *samples = malloc(sizeof(int)*sampleCount+1);
-
-    read_wave_samples(fh,samples,sampleCount-1,readHeader->Fmt.BitsPerSample,0);
-
-    /*int i;
-    for(i=0; i < sampleCount-1; i++)
-        printf("Sample %d: %x\n",i,*(samples + 4*i));
-
-    fclose(fh);
-    free(samples);
-    free(readHeader);*/
     
     return 0;
 
